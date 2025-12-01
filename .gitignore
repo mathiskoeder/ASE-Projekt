@@ -1,0 +1,40 @@
+# Build outputs
+build/
+out/
+target/
+
+# Gradle
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+.factorypath
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local schedule artifacts (not part of the project)
+.commit_schedule.tsv
+.commit_schedule_gen.py
+.commit_helper.sh
+
+# Saved games (runtime artifacts)
+saves/
+*.chess

@@ -44,12 +44,11 @@ public class Piece {
         this.hasMoved = true;
     }
 
-    /** Pseudo-legale Zielfelder ohne Berücksichtigung von Schach. Wird in Folge-Commits gefüllt. */
     public List<Position> possibleMoves(Board board, Position from) {
         List<Position> moves = new ArrayList<>();
         switch (type) {
             case PAWN:
-                // wird in nächstem Commit befüllt
+                addPawnMoves(board, from, moves);
                 break;
             case ROOK:
             case BISHOP:
@@ -64,5 +63,33 @@ public class Piece {
                 throw new IllegalStateException("Unbekannter Figurentyp: " + type);
         }
         return moves;
+    }
+
+    private void addPawnMoves(Board board, Position from, List<Position> moves) {
+        int dir = color.isWhite() ? 1 : -1;
+        int startRank = color.isWhite() ? 1 : 6;
+        int oneStepRank = from.rank() + dir;
+        if (oneStepRank < 0 || oneStepRank > 7) {
+            return;
+        }
+        Position oneStep = Position.of(from.file(), oneStepRank);
+        if (board.isEmpty(oneStep)) {
+            moves.add(oneStep);
+            int twoStepRank = from.rank() + 2 * dir;
+            if (from.rank() == startRank && twoStepRank >= 0 && twoStepRank <= 7) {
+                Position twoStep = Position.of(from.file(), twoStepRank);
+                if (board.isEmpty(twoStep)) {
+                    moves.add(twoStep);
+                }
+            }
+        }
+        for (int df : new int[] {-1, 1}) {
+            int targetFile = from.file() + df;
+            if (targetFile < 0 || targetFile > 7) continue;
+            Position target = Position.of(targetFile, oneStepRank);
+            if (board.isEnemy(target, color)) {
+                moves.add(target);
+            }
+        }
     }
 }

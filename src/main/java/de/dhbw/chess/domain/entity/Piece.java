@@ -51,9 +51,16 @@ public class Piece {
                 addPawnMoves(board, from, moves);
                 break;
             case ROOK:
+                addSlidingMoves(board, from, moves, new int[][] {{1,0},{-1,0},{0,1},{0,-1}});
+                break;
             case BISHOP:
+                addSlidingMoves(board, from, moves, new int[][] {{1,1},{1,-1},{-1,1},{-1,-1}});
+                break;
             case QUEEN:
-                // wird in nächstem Commit befüllt
+                addSlidingMoves(board, from, moves, new int[][] {
+                        {1,0},{-1,0},{0,1},{0,-1},
+                        {1,1},{1,-1},{-1,1},{-1,-1}
+                });
                 break;
             case KNIGHT:
             case KING:
@@ -89,6 +96,26 @@ public class Piece {
             Position target = Position.of(targetFile, oneStepRank);
             if (board.isEnemy(target, color)) {
                 moves.add(target);
+            }
+        }
+    }
+
+    private void addSlidingMoves(Board board, Position from, List<Position> moves, int[][] dirs) {
+        for (int[] d : dirs) {
+            int f = from.file() + d[0];
+            int r = from.rank() + d[1];
+            while (f >= 0 && f <= 7 && r >= 0 && r <= 7) {
+                Position p = Position.of(f, r);
+                if (board.isEmpty(p)) {
+                    moves.add(p);
+                } else {
+                    if (board.isEnemy(p, color)) {
+                        moves.add(p);
+                    }
+                    break;
+                }
+                f += d[0];
+                r += d[1];
             }
         }
     }

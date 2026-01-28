@@ -63,8 +63,15 @@ public class Piece {
                 });
                 break;
             case KNIGHT:
+                addStepMoves(board, from, moves, new int[][] {
+                        {1,2},{2,1},{-1,2},{-2,1},{1,-2},{2,-1},{-1,-2},{-2,-1}
+                });
+                break;
             case KING:
-                // wird in nächstem Commit befüllt
+                addStepMoves(board, from, moves, new int[][] {
+                        {1,0},{-1,0},{0,1},{0,-1},
+                        {1,1},{1,-1},{-1,1},{-1,-1}
+                });
                 break;
             default:
                 throw new IllegalStateException("Unbekannter Figurentyp: " + type);
@@ -116,6 +123,18 @@ public class Piece {
                 }
                 f += d[0];
                 r += d[1];
+            }
+        }
+    }
+
+    private void addStepMoves(Board board, Position from, List<Position> moves, int[][] steps) {
+        for (int[] s : steps) {
+            int f = from.file() + s[0];
+            int r = from.rank() + s[1];
+            if (f < 0 || f > 7 || r < 0 || r > 7) continue;
+            Position p = Position.of(f, r);
+            if (board.isEmpty(p) || board.isEnemy(p, color)) {
+                moves.add(p);
             }
         }
     }

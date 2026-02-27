@@ -1,8 +1,13 @@
 package de.dhbw.chess.domain.entity;
 
 import de.dhbw.chess.domain.valueobject.GameStatus;
+import de.dhbw.chess.domain.valueobject.Move;
+import de.dhbw.chess.domain.valueobject.MoveRecord;
 import de.dhbw.chess.domain.valueobject.PieceColor;
+import de.dhbw.chess.domain.valueobject.PieceType;
+import de.dhbw.chess.domain.valueobject.Position;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -49,5 +54,42 @@ public class Game {
 
     protected void setStatus(GameStatus status) {
         this.status = Objects.requireNonNull(status, "status");
+    }
+
+    /**
+     * Führt einen Zug aus, sofern er regelkonform ist.
+     *
+     * <p><b>Code Smell — bewusst vorhanden:</b> die komplette Validierungslogik (Eigentümerschaft,
+     * pseudo-legale Zielfelder, Eigenschach-Prüfung) hängt direkt in dieser Aggregat-Methode.
+     * Dadurch hat das Aggregat zu viele Verantwortungen. In Phase 6 werden {@code MoveValidator}
+     * und {@code CheckDetector} als eigene Domain-Services extrahiert.</p>
+     */
+    public MoveRecord makeMove(Move move) {
+        Objects.requireNonNull(move, "move");
+        if (status.isFinal()) {
+            throw new IllegalStateException("Partie ist beendet");
+        }
+        Piece moving = board.pieceAt(move.from());
+        if (moving == null) {
+            throw new IllegalArgumentException("Kein Stück auf " + move.from());
+        }
+        if (moving.color() != activeColor) {
+            throw new IllegalArgumentException("Falsche Farbe am Zug");
+        }
+        List<Position> targets = moving.possibleMoves(board, move.from());
+        if (!targets.contains(move.to())) {
+            throw new IllegalArgumentException("Zug nicht erlaubt für " + moving.type());
+        }
+
+        PieceType captured = board.pieceAt(move.to()) != null
+                ? board.pieceAt(move.to()).type() : null;
+        board.move(move.from(), move.to());
+
+        MoveRecord record = MoveRecord.builder(move, moving.color(), moving.type())
+                .captured(captured)
+                .build();
+        history.append(record);
+        switchActiveColor();
+        return record;
     }
 }

@@ -85,11 +85,40 @@ public class Game {
                 ? board.pieceAt(move.to()).type() : null;
         board.move(move.from(), move.to());
 
+        // Code Smell: Schach-Erkennung wird inline ausgeführt — die gleiche Logik wird später für
+        // Schachmatt nochmals gebraucht und dort kopiert (DRY-Verletzung). Auflösung in Phase 6.
+        boolean isCheck = isInCheck(activeColor.opposite());
+        if (isInCheck(activeColor)) {
+            // Eigener König im Schach — Zug zurücknehmen.
+            board.move(move.to(), move.from());
+            if (captured != null) {
+                throw new IllegalStateException("Rückgängig-Pfad mit Capture nicht implementiert");
+            }
+            throw new IllegalArgumentException("Zug lässt eigenen König im Schach");
+        }
+
         MoveRecord record = MoveRecord.builder(move, moving.color(), moving.type())
                 .captured(captured)
+                .check(isCheck)
                 .build();
         history.append(record);
         switchActiveColor();
         return record;
+    }
+
+    private boolean isInCheck(PieceColor color) {
+        Position kingPos = board.findKing(color);
+        if (kingPos == null) return false;
+        for (int f = 0; f < Board.SIZE; f++) {
+            for (int r = 0; r < Board.SIZE; r++) {
+                Position from = Position.of(f, r);
+                Piece p = board.pieceAt(from);
+                if (p == null || p.color() == color) continue;
+                if (p.possibleMoves(board, from).contains(kingPos)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

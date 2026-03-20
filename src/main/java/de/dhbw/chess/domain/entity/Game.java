@@ -73,15 +73,28 @@ public class Game {
         validator.validate(board, move, activeColor);
 
         Piece moving = board.pieceAt(move.from());
+        boolean castling = moving instanceof King
+                && validator.castlingRules().isCastlingMove(board, move);
         Piece captured = board.pieceAt(move.to());
         PieceType capturedType = captured != null ? captured.type() : null;
         board.move(move.from(), move.to());
+        if (castling) {
+            board.move(validator.castlingRules().rookFrom(move),
+                    validator.castlingRules().rookTo(move));
+        }
 
         boolean givesCheck = checkDetector.isInCheck(board, activeColor.opposite());
-        MoveRecord record = MoveRecord.builder(move, moving.color(), moving.type())
+        MoveRecord.Builder b = MoveRecord.builder(move, moving.color(), moving.type())
                 .captured(capturedType)
-                .check(givesCheck)
-                .build();
+                .check(givesCheck);
+        if (castling) {
+            if (validator.castlingRules().isKingside(move)) {
+                b.kingsideCastle(true);
+            } else {
+                b.queensideCastle(true);
+            }
+        }
+        MoveRecord record = b.build();
         history.append(record);
         switchActiveColor();
         return record;

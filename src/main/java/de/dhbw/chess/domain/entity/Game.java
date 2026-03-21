@@ -70,13 +70,20 @@ public class Game {
         if (status.isFinal()) {
             throw new IllegalStateException("Partie ist beendet");
         }
-        validator.validate(board, move, activeColor);
+        validator.validate(board, move, activeColor, history);
 
         Piece moving = board.pieceAt(move.from());
         boolean castling = moving instanceof King
                 && validator.castlingRules().isCastlingMove(board, move);
+        boolean enPassant = moving instanceof Pawn
+                && validator.enPassantRules().isEnPassantMove(board, move, history, activeColor);
+
         Piece captured = board.pieceAt(move.to());
         PieceType capturedType = captured != null ? captured.type() : null;
+        if (enPassant) {
+            board.remove(validator.enPassantRules().capturedSquare(move));
+            capturedType = PieceType.PAWN;
+        }
         board.move(move.from(), move.to());
         if (castling) {
             board.move(validator.castlingRules().rookFrom(move),
@@ -93,6 +100,9 @@ public class Game {
             } else {
                 b.queensideCastle(true);
             }
+        }
+        if (enPassant) {
+            b.enPassant(true);
         }
         MoveRecord record = b.build();
         history.append(record);

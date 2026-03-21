@@ -3,6 +3,7 @@ package de.dhbw.chess.domain.service;
 import de.dhbw.chess.domain.entity.Board;
 import de.dhbw.chess.domain.entity.King;
 import de.dhbw.chess.domain.entity.Knight;
+import de.dhbw.chess.domain.entity.MoveHistory;
 import de.dhbw.chess.domain.entity.Pawn;
 import de.dhbw.chess.domain.entity.Rook;
 import de.dhbw.chess.domain.valueobject.Move;
@@ -46,7 +47,7 @@ class MoveValidatorTest {
         board.place(new Knight(PieceColor.WHITE), p("b1"));
         MoveValidator v = new MoveValidator();
         assertDoesNotThrow(() ->
-                v.validate(board, new Move(p("b1"), p("c3")), PieceColor.WHITE));
+                v.validate(board, new Move(p("b1"), p("c3")), PieceColor.WHITE, new MoveHistory()));
     }
 
     @Test
@@ -58,7 +59,7 @@ class MoveValidatorTest {
         board.place(new Rook(PieceColor.BLACK), p("e7"));
         MoveValidator v = new MoveValidator();
         assertThrows(IllegalArgumentException.class, () ->
-                v.validate(board, new Move(p("e2"), p("g3")), PieceColor.WHITE));
+                v.validate(board, new Move(p("e2"), p("g3")), PieceColor.WHITE, new MoveHistory()));
     }
 
     @Test
@@ -69,6 +70,6 @@ class MoveValidatorTest {
         board.place(new Pawn(PieceColor.BLACK), p("e7"));
         MoveValidator v = new MoveValidator();
         assertThrows(IllegalArgumentException.class, () ->
-                v.validate(board, new Move(p("e7"), p("e6")), PieceColor.WHITE));
+                v.validate(board, new Move(p("e7"), p("e6")), PieceColor.WHITE, new MoveHistory()));
     }
 }

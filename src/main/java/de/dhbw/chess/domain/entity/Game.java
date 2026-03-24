@@ -89,6 +89,10 @@ public class Game {
             board.move(validator.castlingRules().rookFrom(move),
                     validator.castlingRules().rookTo(move));
         }
+        if (move.isPromotion()) {
+            board.remove(move.to());
+            board.place(promote(move.promotion(), moving.color()), move.to());
+        }
 
         boolean givesCheck = checkDetector.isInCheck(board, activeColor.opposite());
         MoveRecord.Builder b = MoveRecord.builder(move, moving.color(), moving.type())
@@ -108,5 +112,15 @@ public class Game {
         history.append(record);
         switchActiveColor();
         return record;
+    }
+
+    private static Piece promote(PieceType target, PieceColor color) {
+        return switch (target) {
+            case QUEEN -> new Queen(color);
+            case ROOK -> new Rook(color);
+            case BISHOP -> new Bishop(color);
+            case KNIGHT -> new Knight(color);
+            default -> throw new IllegalArgumentException("Promotion zu " + target + " unzulässig");
+        };
     }
 }

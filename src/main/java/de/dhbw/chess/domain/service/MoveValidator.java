@@ -55,10 +55,22 @@ public class MoveValidator {
         if (!targets.contains(move.to())) {
             throw new IllegalArgumentException("Zug nicht erlaubt für " + moving.type());
         }
+        verifyPromotion(moving, move, activeColor);
         Board probe = board.copy();
         probe.move(move.from(), move.to());
         if (checkDetector.isInCheck(probe, activeColor)) {
             throw new IllegalArgumentException("Zug lässt eigenen König im Schach");
+        }
+    }
+
+    private void verifyPromotion(Piece moving, Move move, PieceColor color) {
+        boolean reachesLastRank = moving instanceof Pawn
+                && move.to().rank() == (color.isWhite() ? 7 : 0);
+        if (reachesLastRank && !move.isPromotion()) {
+            throw new IllegalArgumentException("Bauernumwandlung erforderlich");
+        }
+        if (!reachesLastRank && move.isPromotion()) {
+            throw new IllegalArgumentException("Promotion ist nur auf der letzten Reihe erlaubt");
         }
     }
 

@@ -1,6 +1,7 @@
 package de.dhbw.chess.domain.entity;
 
 import de.dhbw.chess.domain.service.CheckDetector;
+import de.dhbw.chess.domain.service.GameStateEvaluator;
 import de.dhbw.chess.domain.service.MoveValidator;
 import de.dhbw.chess.domain.valueobject.GameStatus;
 import de.dhbw.chess.domain.valueobject.Move;
@@ -29,6 +30,7 @@ public class Game {
     private final MoveHistory history = new MoveHistory();
     private final MoveValidator validator;
     private final CheckDetector checkDetector;
+    private final GameStateEvaluator stateEvaluator;
     private PieceColor activeColor = PieceColor.WHITE;
     private GameStatus status = GameStatus.IN_PROGRESS;
 
@@ -44,6 +46,7 @@ public class Game {
         this.board = Objects.requireNonNull(board, "board");
         this.checkDetector = Objects.requireNonNull(checkDetector, "checkDetector");
         this.validator = validator != null ? validator : new MoveValidator(this.checkDetector);
+        this.stateEvaluator = new GameStateEvaluator(this.checkDetector);
         if (white.color() != PieceColor.WHITE || black.color() != PieceColor.BLACK) {
             throw new IllegalArgumentException("Spieler-Farben widersprechen den Argumenten");
         }
@@ -111,7 +114,23 @@ public class Game {
         MoveRecord record = b.build();
         history.append(record);
         switchActiveColor();
+        updateStatus();
         return record;
+    }
+
+    private void updateStatus() {
+        if (stateEvaluator.isCheckmate(board, activeColor)) {
+            status = activeColor.isWhite() ? GameStatus.BLACK_WINS : GameStatus.WHITE_WINS;
+        } else if (stateEvaluator.isStalemate(board, activeColor)) {
+            status = GameStatus.DRAW_STALEMATE;
+        }
+    }
+
+    public void resign(PieceColor color) {
+        if (status.isFinal()) {
+            throw new IllegalStateException("Partie ist beendet");
+        }
+        status = color.isWhite() ? GameStatus.BLACK_WINS : GameStatus.WHITE_WINS;
     }
 
     private static Piece promote(PieceType target, PieceColor color) {

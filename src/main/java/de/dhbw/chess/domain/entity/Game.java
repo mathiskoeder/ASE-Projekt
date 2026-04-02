@@ -123,6 +123,9 @@ public class Game {
             status = activeColor.isWhite() ? GameStatus.BLACK_WINS : GameStatus.WHITE_WINS;
         } else if (stateEvaluator.isStalemate(board, activeColor)) {
             status = GameStatus.DRAW_STALEMATE;
+        } else if (history.halfMovesSinceProgress() >= 100) {
+            // 50 Vollzüge = 100 Halbzüge ohne Bauernzug oder Schlag.
+            status = GameStatus.DRAW_FIFTY_MOVE_RULE;
         }
     }
 

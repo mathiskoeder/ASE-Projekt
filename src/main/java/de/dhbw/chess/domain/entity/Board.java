@@ -101,4 +101,21 @@ public class Board {
         }
         return copy;
     }
+
+    /**
+     * Kompakter Repräsentations-String der aktuellen Stellung — Grundlage für die dreifache
+     * Stellungswiederholung. Berücksichtigt Felder + Figurensymbole, nicht jedoch Rochaderechte
+     * (das genügt für die einfache Implementierung in dieser Aufgabe).
+     */
+    public String positionHash() {
+        StringBuilder sb = new StringBuilder(64);
+        for (int r = SIZE - 1; r >= 0; r--) {
+            for (int f = 0; f < SIZE; f++) {
+                Piece p = squares[f][r];
+                sb.append(p == null ? '.' : p.type().fenSymbol(p.color()));
+            }
+            sb.append('/');
+        }
+        return sb.toString();
+    }
 }

@@ -9,6 +9,8 @@ import de.dhbw.chess.domain.valueobject.MoveRecord;
 import de.dhbw.chess.domain.valueobject.PieceColor;
 import de.dhbw.chess.domain.valueobject.PieceType;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -31,6 +33,7 @@ public class Game {
     private final MoveValidator validator;
     private final CheckDetector checkDetector;
     private final GameStateEvaluator stateEvaluator;
+    private final Map<String, Integer> positionCounts = new HashMap<>();
     private PieceColor activeColor = PieceColor.WHITE;
     private GameStatus status = GameStatus.IN_PROGRESS;
 
@@ -114,6 +117,7 @@ public class Game {
         MoveRecord record = b.build();
         history.append(record);
         switchActiveColor();
+        positionCounts.merge(board.positionHash(), 1, Integer::sum);
         updateStatus();
         return record;
     }
@@ -126,6 +130,8 @@ public class Game {
         } else if (history.halfMovesSinceProgress() >= 100) {
             // 50 Vollzüge = 100 Halbzüge ohne Bauernzug oder Schlag.
             status = GameStatus.DRAW_FIFTY_MOVE_RULE;
+        } else if (positionCounts.getOrDefault(board.positionHash(), 0) >= 3) {
+            status = GameStatus.DRAW_THREEFOLD_REPETITION;
         }
     }
 

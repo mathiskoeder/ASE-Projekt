@@ -30,6 +30,7 @@ dependencies {
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
+    systemProperty("net.bytebuddy.experimental", "true")
     finalizedBy(tasks.named("jacocoTestReport"))
 }
 

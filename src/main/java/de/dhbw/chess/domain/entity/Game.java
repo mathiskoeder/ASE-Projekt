@@ -71,6 +71,22 @@ public class Game {
         this.status = Objects.requireNonNull(status, "status");
     }
 
+    /**
+     * Setzt die ziehende Farbe beim Wiederherstellen aus einer Speicherdatei. Nicht für den
+     * normalen Spielablauf gedacht.
+     */
+    public void switchActiveColorForRestore() {
+        switchActiveColor();
+    }
+
+    /**
+     * Setzt den Spielstatus beim Wiederherstellen aus einer Speicherdatei. Nicht für den normalen
+     * Spielablauf gedacht.
+     */
+    public void setStatusForRestore(GameStatus status) {
+        setStatus(status);
+    }
+
     public MoveRecord makeMove(Move move) {
         Objects.requireNonNull(move, "move");
         if (status.isFinal()) {

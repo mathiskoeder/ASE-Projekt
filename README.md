@@ -92,6 +92,12 @@ Mockito sowie Round-Trip-Tests für die FEN- und Datei-Persistenz.
 open build/reports/jacoco/test/html/index.html
 ```
 
+## Dokumentation
+
+Die ausführliche Programmentwurf-Dokumentation (Clean Architecture, SOLID, GRASP/DRY, DDD,
+Refactorings, Entwurfsmuster, Unit-Tests) liegt in `docs/Programmentwurf_Dokumentation.tex`
+mit gebauter PDF unter `docs/Programmentwurf_Dokumentation.pdf`.
+
 ## Autoren
 
 - Max Katzenberger

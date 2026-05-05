@@ -38,3 +38,19 @@ Thumbs.db
 # Saved games (runtime artifacts)
 saves/
 *.chess
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.nav
+*.out
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+*.xdv

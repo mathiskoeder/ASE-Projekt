@@ -1,0 +1,910 @@
+\documentclass[a4paper,12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+\usepackage{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage[simplified]{pgf-umlcd}
+
+% Lange \texttt{}-Bezeichner brechen über \allowbreak in Tabellen; \sloppy
+% lockert die Zeilenumbruch-Strafen, damit nichts über den Rand läuft.
+\sloppy
+
+\geometry{
+  a4paper,
+  left=2.5cm,
+  right=2.5cm,
+  top=3cm,
+  bottom=3cm
+}
+
+% Section formatting
+\titleformat{\section}[block]{\large\bfseries}{Kapitel \thesection:}{0.5em}{}
+\titleformat{\subsection}[block]{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}[block]{\normalsize\bfseries}{\thesubsubsection}{0.5em}{}
+
+% Kapitel beginnen immer auf einer neuen Seite.
+\let\oldsection\section
+\renewcommand{\section}{\clearpage\oldsection}
+
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+% Custom colors / highlighting for placeholder text
+\usepackage{xcolor}
+\newcommand{\placeholder}[1]{\textcolor{gray}{[#1]}}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\bfseries,
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  numbers=none,
+  language=Java
+}
+
+% List settings
+\renewcommand{\labelitemiii}{$\blacksquare$}
+
+\setlist[itemize,1]{label=\textbullet, leftmargin=1.5em}
+\setlist[itemize,2]{label=\textopenbullet, leftmargin=1.5em}
+\setlist[itemize,3]{label=$\blacksquare$, leftmargin=1.5em}
+\setlist[itemize,4]{label=\textbullet, leftmargin=1.5em}
+
+\begin{document}
+
+% ============================================================
+% Title Page
+% ============================================================
+\begin{titlepage}
+    \centering
+    \vspace*{4cm}
+
+    {\LARGE\bfseries Programmentwurf Konsolen-Schach\par}
+
+    \vspace{3cm}
+
+    \begin{tabular}{ll}
+        \textbf{Name:}           & Max Katzenberger     \\[0.5em]
+        \textbf{Matrikelnummer:} & 4008573              \\[1em]
+        \textbf{Name:}           & Mathis Koeder        \\[0.5em]
+        \textbf{Matrikelnummer:} & 3360189              \\[1em]
+        \textbf{Abgabedatum:}    & 31.05.2026
+    \end{tabular}
+\end{titlepage}
+
+% ============================================================
+% Kapitel 1: Einführung
+% ============================================================
+\section{Einführung}
+
+\subsection*{Übersicht über die Applikation}
+
+Die Anwendung ist ein vollständiges Konsolen-Schachspiel im Hot-Seat-Modus. Zwei Spieler teilen sich
+einen Rechner, geben ihre Züge nacheinander in algebraischer Notation ein (\texttt{e2-e4},
+\texttt{e7-e8=Q}, \texttt{O-O}) und sehen das Brett zwischen den Zügen als Unicode-ASCII-Ausgabe.
+
+Implementiert sind alle regulären Schachregeln einschließlich Rochade, En passant,
+Bauernumwandlung sowie der Endspielerkennung Schachmatt, Patt, 50-Züge-Regel und dreifacher
+Stellungswiederholung. Partien können in einer einfachen, von Hand lesbaren Datei gespeichert und
+später wieder geladen werden (Format: FEN-Stellung plus PGN-light-Zugfolge).
+
+Das Projekt löst kein konkretes Praxisproblem, sondern dient als didaktischer Übungsträger für
+Clean Architecture, Domain Driven Design, SOLID, Refactorings und Entwurfsmuster im Sinne des
+DHBW-Programmentwurfs.
+
+\subsection*{Wie startet man die Applikation?}
+
+Voraussetzungen: JDK 17 oder neuer und ein Terminal mit Unicode-Unterstützung. Der mitgelieferte
+Gradle-Wrapper lädt sich Gradle 9 selbst herunter.
+
+\begin{lstlisting}[language=bash]
+cd Chess
+./gradlew run
+\end{lstlisting}
+
+Im Spiel führt der Befehl \texttt{help} eine Übersicht aller Eingaben auf. Eine typische Sitzung:
+
+\begin{lstlisting}
+> new Max Mathis
+Neue Partie: 4f3c2a-...
+> e2-e4
+> e7-e5
+> save
+> quit
+\end{lstlisting}
+
+\subsection*{Wie testet man die Applikation?}
+
+Die JUnit-5-Suite läuft komplett über Gradle. Mockito-Tests benötigen das Flag
+\texttt{net.bytebuddy.experimental=true}, das im \texttt{build.gradle.kts} bereits
+gesetzt ist.
+
+\begin{lstlisting}[language=bash]
+./gradlew test
+./gradlew jacocoTestReport
+open build/reports/jacoco/test/html/index.html
+\end{lstlisting}
+
+% ============================================================
+% Kapitel 2: Clean Architecture
+% ============================================================
+\section{Clean Architecture}
+
+\subsection*{Was ist Clean Architecture?}
+
+Clean Architecture nach Robert C. Martin organisiert ein System in konzentrische Schichten, deren
+Abhängigkeiten ausschließlich nach innen gerichtet sind. Innerhalb dieser Schale liegen die
+Domänen-Entitäten und Geschäftsregeln, in den äußeren Schichten Anwendungs-Use-Cases und
+schließlich Adapter wie UI, Datenbank oder Frameworks. Die zentrale Regel — die \emph{Dependency
+Rule} — besagt, dass Code aus einer äußeren Schicht zwar auf innere Schichten zugreifen darf, aber
+niemals umgekehrt: die Domain weiß nichts von der Datenbank, die Datenbank weiß nichts vom UI.
+
+Im Projekt ergeben sich vier Schichten:
+
+\begin{itemize}
+    \item \textbf{domain}: Entitäten (\texttt{Game}, \texttt{Board}, \texttt{Piece}…), Value
+          Objects, Domain-Services, Repository-Interfaces.
+    \item \textbf{application}: Use-Cases als Application Services (\texttt{GameService},
+          \texttt{MoveService}, \texttt{PersistenceService}), Factories, DTOs.
+    \item \textbf{infrastructure}: Implementierungen der Repository-Interfaces sowie
+          Serialisierer (\texttt{FileGameRepository}, \texttt{FenSerializer}).
+    \item \textbf{presentation}: Konsolen-UI mit \texttt{ConsoleApp}, \texttt{BoardRenderer},
+          \texttt{InputParser} und Command-Objekten.
+\end{itemize}
+
+Abhängigkeitsrichtung: \texttt{presentation $\to$ application $\to$ domain $\leftarrow$ infrastructure}.
+
+\subsection*{Analyse der Dependency Rule}
+
+\subsubsection*{Positiv-Beispiel: Dependency Rule}
+
+\texttt{de.dhbw.chess.domain.entity.Game} ist Aggregat-Wurzel und liegt damit in der innersten
+Schicht. Die Klasse importiert ausschließlich aus \texttt{domain.valueobject}, \texttt{domain.entity}
+und \texttt{domain.service} — keinen Import in Richtung \texttt{application},
+\texttt{infrastructure} oder \texttt{presentation}.
+
+\begin{tikzpicture}
+\begin{class}[text width=8cm]{Game}{0,0}
+    \attribute{- id : UUID}
+    \attribute{- white, black : Player}
+    \attribute{- board : Board}
+    \attribute{- history : MoveHistory}
+    \attribute{- validator : MoveValidator}
+    \attribute{- checkDetector : CheckDetector}
+    \attribute{- stateEvaluator : GameStateEvaluator}
+    \attribute{- activeColor : PieceColor}
+    \attribute{- status : GameStatus}
+    \operation{+ makeMove(move : Move) : MoveRecord}
+    \operation{+ resign(color : PieceColor)}
+\end{class}
+\end{tikzpicture}
+
+\textbf{Wer hängt von \texttt{Game} ab?} \texttt{GameService} und \texttt{MoveService} aus der
+Application-Schicht, sowie alle Command-Klassen der Presentation-Schicht — also ausschließlich
+äußere Schichten. \textbf{Wovon hängt \texttt{Game} ab?} Nur von Klassen seiner eigenen Domain.
+Damit erfüllt die Klasse die Dependency Rule.
+
+\subsubsection*{Negativ-Beispiel: Dependency Rule}
+
+Im aktuellen Stand existiert keine Domain- oder Application-Klasse, die nach außen importiert. Als
+hypothetisches Negativ-Beispiel: würde \texttt{Game} direkt eine \texttt{FileGameRepository}-Instanz
+besitzen und beim \texttt{makeMove} synchron schreiben, würde der Domänenkern an die
+Infrastruktur-Schicht gekoppelt; ein Wechsel auf eine Datenbank zöge Änderungen mitten in der
+Domain nach sich. Heute trägt der \texttt{MoveService} (Application) diese Verantwortung —
+\texttt{game.makeMove(...)} bleibt in der Domain isoliert, der Service ruft anschließend
+\texttt{repository.save(game)} auf.
+
+\subsection*{Analyse der Schichten}
+
+\subsubsection*{Schicht: Domain --- \texttt{MoveValidator}}
+
+\texttt{de.dhbw.chess.domain.service.MoveValidator} ist ein Domain-Service. Er prüft für eine
+Stellung, ob ein Zug regelkonform ist (Bewegungsmuster der Figur, Rochade-Vorbedingungen, En
+passant, Selbst-Schach). Es gibt keinen sinnvollen Identitätsbegriff, daher Service statt Entity.
+Die Klasse spricht nur Domain-Klassen an (\texttt{Board}, \texttt{Piece}-Hierarchie,
+\texttt{MoveHistory}) und ist damit Teil der innersten Schicht.
+
+\begin{tikzpicture}
+\begin{class}[text width=8.5cm]{MoveValidator}{0,0}
+    \attribute{- checkDetector : CheckDetector}
+    \attribute{- castlingRules : CastlingRules}
+    \attribute{- enPassantRules : EnPassantRules}
+    \operation{+ validate(board, move, color, history)}
+\end{class}
+\end{tikzpicture}
+
+\subsubsection*{Schicht: Infrastructure --- \texttt{FileGameRepository}}
+
+\texttt{de.dhbw.chess.infrastructure.persistence.FileGameRepository} implementiert das
+Domain-Interface \texttt{GameRepository} und schreibt jede Partie als Textdatei ins
+Verzeichnis \texttt{\textasciitilde/.chess-saves/}. Die Klasse kennt die Domain (sie serialisiert
+\texttt{Board} und \texttt{MoveHistory}), die Domain kennt aber nicht die Datei — sie sieht nur
+das Interface.
+
+\begin{tikzpicture}
+\begin{interface}[text width=7cm]{GameRepository}{0,0}
+    \operation{+ save(game : Game)}
+    \operation{+ findById(id : UUID) : Optional<Game>}
+    \operation{+ delete(id : UUID)}
+\end{interface}
+\begin{class}[text width=7cm]{FileGameRepository}{0,-3.5}
+    \implement{GameRepository}
+    \attribute{- directory : Path}
+\end{class}
+\end{tikzpicture}
+
+% ============================================================
+% Kapitel 3: SOLID
+% ============================================================
+\section{SOLID}
+
+\subsection*{Analyse Single-Responsibility-Principle (SRP)}
+
+\subsubsection*{Positiv-Beispiel}
+
+\texttt{CheckDetector} hat genau eine Verantwortung: zu prüfen, ob der König einer Farbe auf
+einem gegebenen Brett im Schach steht.
+
+\begin{tikzpicture}
+\begin{class}[text width=8cm]{CheckDetector}{0,0}
+    \operation{+ isInCheck(board : Board, color : PieceColor) : boolean}
+    \operation{+ isAttacked(board : Board, pos : Position, by : PieceColor) : boolean}
+\end{class}
+\end{tikzpicture}
+
+Es gibt nur einen Grund, die Klasse zu ändern: wenn sich die Definition von \glqq{}im
+Schach\grqq{} ändert. Sie kennt weder das Aggregat noch Persistenz und mischt keine Verantwortungen.
+
+\subsubsection*{Negativ-Beispiel}
+
+In den Commits \texttt{39706e1} (\glqq{}Game.makeMove with inline validation\grqq{}) und
+\texttt{a4d18f5} (\glqq{}inline check detection in Game\grqq{}) hatte \texttt{Game} mehrere
+Aufgaben gleichzeitig: Aggregat-Lebenszyklus, Zugvalidierung \emph{und} Schach-Erkennung. Die
+gesamte Regel-Logik hing direkt in \texttt{makeMove}, sodass die Klasse mehr als einen Grund hatte,
+sich zu ändern --- jedes neue Regeldetail (Rochade, En passant, Selbst-Schach) hätte mitten in
+\texttt{Game} eingeflochten werden müssen.
+
+\begin{lstlisting}[caption={Game.makeMove (Stand \texttt{39706e1}) --- Validierung inline im Aggregat}]
+public MoveRecord makeMove(Move move) {
+    Objects.requireNonNull(move, "move");
+    if (status.isFinal()) {
+        throw new IllegalStateException("Partie ist beendet");
+    }
+    Piece moving = board.pieceAt(move.from());
+    if (moving == null) {
+        throw new IllegalArgumentException("Kein Stueck auf " + move.from());
+    }
+    if (moving.color() != activeColor) {
+        throw new IllegalArgumentException("Falsche Farbe am Zug");
+    }
+    List<Position> targets = moving.possibleMoves(board, move.from());
+    if (!targets.contains(move.to())) {
+        throw new IllegalArgumentException("Zug nicht erlaubt fuer " + moving.type());
+    }
+    // ... Brett aendern, Historie schreiben, Farbe wechseln
+}
+\end{lstlisting}
+
+Lösungsweg: \texttt{MoveValidator} und \texttt{CheckDetector} als eigene Domain-Services
+extrahieren. \texttt{Game} delegiert dann nur noch und bleibt damit auf seine Aggregat-Verantwortung
+beschränkt.
+
+\newpage
+
+\subsection*{Analyse Open-Closed-Principle (OCP)}
+
+\subsubsection*{Positiv-Beispiel}
+
+Die abstrakte Klasse \texttt{Piece} mit der Methode \texttt{possibleMoves(Board, Position)} und den
+Subklassen \texttt{Pawn}, \texttt{Rook}, \texttt{Bishop}, \texttt{Queen}, \texttt{Knight},
+\texttt{King}.
+
+\begin{tikzpicture}
+\begin{abstractclass}[text width=6cm]{Piece}{0,0}
+    \attribute{- type : PieceType}
+    \attribute{- color : PieceColor}
+    \operation{+ possibleMoves(board, from)}
+\end{abstractclass}
+\begin{class}[text width=3.5cm]{Pawn}{-4,-4}
+    \inherit{Piece}
+\end{class}
+\begin{class}[text width=3.5cm]{Knight}{0,-4}
+    \inherit{Piece}
+\end{class}
+\begin{class}[text width=3.5cm]{Queen}{4,-4}
+    \inherit{Piece}
+\end{class}
+\end{tikzpicture}
+
+Soll eine neue Figur (z. B. \glqq{}Berolina-Bauer\grqq{}) hinzukommen, schreibt man eine neue
+Subklasse, ohne bestehende Klassen zu ändern --- offen für Erweiterung, geschlossen für Modifikation.
+Das gleiche Prinzip nutzt das Command-Pattern in der Presentation-Schicht: ein neuer CLI-Befehl
+ist eine neue \texttt{Command}-Implementation; der Dispatcher in \texttt{ConsoleApp} bleibt
+unangetastet.
+
+\subsubsection*{Negativ-Beispiel}
+
+Im Commit \texttt{38655b6} (\glqq{}Piece base class with type-based switch logic\grqq{})
+existierte eine einzelne, finale \texttt{Piece}-Klasse mit einer langen
+\texttt{switch(type)}-Anweisung in \texttt{possibleMoves}. Jede neue Figur hätte den
+\texttt{switch} aufgebrochen. Der Code-Smell wurde im Refactoring 1 (Commit \texttt{4a5b875})
+durch Extraktion in Subklassen (Strategy) aufgelöst.
+
+\begin{lstlisting}[language=Java,caption={Piece.possibleMoves (Stand 89e3843) --- zentrale switch-Logik},basicstyle=\ttfamily\footnotesize,frame=single]
+public List<Position> possibleMoves(Board board, Position from) {
+    List<Position> moves = new ArrayList<>();
+    switch (type) {
+        case PAWN:
+            addPawnMoves(board, from, moves);
+            break;
+        case ROOK:
+            addSlidingMoves(board, from, moves,
+                new int[][] {{1,0},{-1,0},{0,1},{0,-1}});
+            break;
+        case BISHOP:
+            addSlidingMoves(board, from, moves,
+                new int[][] {{1,1},{1,-1},{-1,1},{-1,-1}});
+            break;
+        case QUEEN:
+            addSlidingMoves(board, from, moves, new int[][] {
+                {1,0},{-1,0},{0,1},{0,-1},
+                {1,1},{1,-1},{-1,1},{-1,-1}});
+            break;
+        case KNIGHT:
+            addStepMoves(board, from, moves, new int[][] {
+                {1,2},{2,1},{-1,2},{-2,1},
+                {1,-2},{2,-1},{-1,-2},{-2,-1}});
+            break;
+        case KING:
+            addStepMoves(board, from, moves, new int[][] {
+                {1,0},{-1,0},{0,1},{0,-1},
+                {1,1},{1,-1},{-1,1},{-1,-1}});
+            break;
+        default:
+            throw new IllegalStateException("Unbekannter Figurentyp: " + type);
+    }
+    return moves;
+}
+\end{lstlisting}
+
+\bigskip
+
+\subsection*{Analyse Liskov-Substitution- (LSP), Interface-Segregation- (ISP),\\
+    Dependency-Inversion-Principle (DIP)}
+
+Hier wird das \textbf{Dependency-Inversion-Principle (DIP)} ausgewählt.
+
+\subsubsection*{Positiv-Beispiel}
+
+\texttt{GameService} hängt vom \emph{Interface} \texttt{GameRepository} ab, nicht von einer
+konkreten Implementierung. Im Konstruktor wird das Repository injiziert; ob dahinter
+\texttt{InMemoryGameRepository}, \texttt{FileGameRepository} oder im Test ein
+\texttt{Mockito.mock(GameRepository.class)} steht, ist transparent.
+
+\begin{tikzpicture}
+\begin{interface}[text width=5.5cm]{GameRepository}{0,0}
+\end{interface}
+\begin{class}[text width=5.5cm]{GameService}{-4,-3}
+    \attribute{- gameRepository}
+\end{class}
+\begin{class}[text width=5.5cm]{FileGameRepository}{4,-3}
+    \implement{GameRepository}
+\end{class}
+\begin{class}[text width=5.5cm]{InMemoryGameRepository}{4,-6}
+    \implement{GameRepository}
+\end{class}
+\end{tikzpicture}
+
+Die Application-Schicht hängt nur in Richtung Abstraktion (Interface in der Domain), die
+Infrastruktur-Schicht implementiert dieselbe Abstraktion --- klassisches DIP.
+
+\subsubsection*{Negativ-Beispiel}
+
+Würde \texttt{ConsoleApp} direkt \texttt{new FileGameRepository(...)} bauen \emph{und} dann
+selbst Datei-Pfade konstruieren und FEN parsen, hinge die Presentation-Schicht an einer konkreten
+Klasse statt an einer Abstraktion. Aktuell instanziiert \texttt{ConsoleApp} zwar das konkrete
+\texttt{FileGameRepository} (Zusammenstellung in \texttt{main}), reicht es aber als
+\texttt{GameRepository}-Referenz an die Services weiter, sodass die übrige Anwendung weiterhin
+gegen die Abstraktion programmiert ist.
+
+% ============================================================
+% Kapitel 4: Weitere Prinzipien
+% ============================================================
+\section{Weitere Prinzipien}
+
+\subsection*{Analyse GRASP: Geringe Kopplung}
+
+\subsubsection*{Positiv-Beispiel}
+
+\texttt{GameService} kennt nur das \texttt{GameRepository}-Interface und die
+\texttt{GameFactory}. Wechselt die Persistenzstrategie, ändert sich am Service nichts. Insgesamt
+verläuft Kommunikation in diesem Projekt fast ausschließlich über schmale Interfaces und Value
+Objects.
+
+\subsubsection*{Negativ-Beispiel}
+
+Eine engere Kopplung entsteht in der Presentation-Schicht beim CLI-Befehl \texttt{MoveCmd}:
+das Command-Objekt kennt nicht nur den \texttt{MoveService}, sondern greift zusätzlich direkt auf
+das Domain-Modell zu (\texttt{game.board()}, \texttt{game.activeColor()}, \texttt{King.class}),
+um bei einer Rochade-Eingabe (\texttt{O-O}) das Königsfeld zu finden. Damit hängt eine
+Presentation-Klasse an mehreren Domain-Klassen gleichzeitig (\texttt{Game}, \texttt{Board},
+\texttt{King}, \texttt{Position}). Die Kopplung ist gewollt, aber nicht minimal --- denkbar wäre,
+einen Application-Service-Aufruf wie \texttt{moveService.executeCastling(gameId, kingside)}
+einzuführen, sodass die CLI keinen Zugriff mehr auf Domain-Entities benötigt.
+
+\begin{lstlisting}[language=Java,caption={MoveCmd --- Presentation-Klasse mit direktem Zugriff auf Domain-Entities},basicstyle=\ttfamily\footnotesize,frame=single]
+private Position findKing(Game game, PieceColor color) {
+    for (int f = 0; f < 8; f++) {
+        for (int r = 0; r < 8; r++) {
+            Position p = Position.of(f, r);
+            if (game.board().pieceAt(p) instanceof King k && k.color() == color) {
+                return p;
+            }
+        }
+    }
+    throw new IllegalStateException("Kein Koenig auf dem Brett");
+}
+\end{lstlisting}
+
+\bigskip
+
+\subsection*{Analyse GRASP: Hohe Kohäsion}
+
+\texttt{FenSerializer} hat ausschließlich eine Aufgabe: das Brett-Layout einer Schachpartie
+zwischen Java-Objekten und der Standard-FEN-Stellungsnotation zu konvertieren. Beide Methoden
+(\texttt{serializePlacement} und \texttt{parsePlacement}) gehören eng zusammen, teilen den
+Wertebereich (FEN-Symbole) und werden im selben Use-Case --- Speichern und Laden --- benötigt.
+Entsprechend hoch ist die Kohäsion.
+
+\subsection*{Don't Repeat Yourself (DRY)}
+
+Im früheren Stand (Commit \texttt{a4d18f5}) enthielt \texttt{Game} sowohl die
+Validierung eines Zugs als auch eine eigenständige Schach-Erkennung. Beide Stellen prüften, ob ein
+Probe-Brett den eigenen König in Schach setzen würde --- die Logik (Brett kopieren, Zug ausführen,
+Königsfeld auf Angriffsfreiheit prüfen) war doppelt vorhanden.
+
+\begin{lstlisting}[language=Java,caption={Game (Stand \texttt{a4d18f5}) --- Schach-Prüfung inline und dupliziert},basicstyle=\ttfamily\footnotesize,frame=single]
+public MoveRecord makeMove(Move move) {
+    // ... (Eigentums- und Zielfeld-Pruefung) ...
+    board.move(move.from(), move.to());
+    boolean isCheck = isInCheck(activeColor.opposite());
+    if (isInCheck(activeColor)) {
+        board.move(move.to(), move.from());
+        throw new IllegalArgumentException("Zug laesst eigenen Koenig im Schach");
+    }
+    // ...
+}
+
+private boolean isInCheck(PieceColor color) {
+    Position kingPos = board.findKing(color);
+    if (kingPos == null) return false;
+    for (int f = 0; f < Board.SIZE; f++) {
+        for (int r = 0; r < Board.SIZE; r++) {
+            Position from = Position.of(f, r);
+            Piece p = board.pieceAt(from);
+            if (p == null || p.color() == color) continue;
+            if (p.possibleMoves(board, from).contains(kingPos)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+\end{lstlisting}
+
+Im Refactoring 2 (Commits \texttt{82a8048}, \texttt{cede2d0}) wurden \texttt{MoveValidator} und
+\texttt{CheckDetector} extrahiert; seitdem existiert die Schach-Prüfung an genau einer Stelle und
+beide Aufrufer (Validator beim Probespielen, Aggregat beim Erkennen von \glqq{}Schach!\grqq{})
+rufen denselben Service auf.
+
+\begin{lstlisting}[language=Java,caption={CheckDetector (Stand \texttt{cede2d0}) --- Schach-Prüfung an genau einer Stelle},basicstyle=\ttfamily\footnotesize,frame=single]
+public class CheckDetector {
+
+    public boolean isInCheck(Board board, PieceColor color) {
+        Position kingPos = board.findKing(color);
+        if (kingPos == null) return false;
+        return isAttacked(board, kingPos, color.opposite());
+    }
+
+    public boolean isAttacked(Board board, Position target, PieceColor attacker) {
+        for (int f = 0; f < Board.SIZE; f++) {
+            for (int r = 0; r < Board.SIZE; r++) {
+                Position from = Position.of(f, r);
+                Piece p = board.pieceAt(from);
+                if (p == null || p.color() != attacker) continue;
+                if (p.possibleMoves(board, from).contains(target)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+\end{lstlisting}
+
+% ============================================================
+% Kapitel 5: Unit Tests
+% ============================================================
+\section{Unit Tests}
+
+\subsection*{10 Unit Tests}
+
+\bigskip
+\begin{tabularx}{\textwidth}{|l|X|X|}
+    \hline
+    \textbf{Unit Test} & \textbf{Beschreibung} & \textbf{Klasse\#Methode} \\
+    \hline
+    UT01 & \texttt{Position} weist negative oder zu große Indizes ab. & \texttt{PositionTest\#}\allowbreak\texttt{rejectsOutOfBounds} \\[1.2em]
+    \hline
+    UT02 & \texttt{PieceColor.opposite()} ist symmetrisch. & \texttt{PieceColorTest\#}\allowbreak\texttt{oppositeIsSymmetric} \\[1.2em]
+    \hline
+    UT03 & \texttt{Move.equals/hashCode} ist konsistent. & \texttt{MoveTest\#}\allowbreak\texttt{equalsAndHashCode} \\[1.2em]
+    \hline
+    UT04 & Springer-Sprung-Muster sind korrekt. & \texttt{PieceMovesTest\#}\allowbreak\texttt{knightLShape} \\[1.2em]
+    \hline
+    UT05 & Bauern-Doppelschritt nur aus Grundreihe. & \texttt{PieceMovesTest\#}\allowbreak\texttt{pawnDoubleStep} \\[1.2em]
+    \hline
+    UT06 & Kurze Rochade gelingt unter Standardbedingungen. & \texttt{CastlingTest\#}\allowbreak\texttt{kingsideCastling} \\[1.2em]
+    \hline
+    UT07 & En passant schlägt den passenden Bauern. & \texttt{EnPassantTest\#}\allowbreak\texttt{capturesAdjacentPawn}\allowbreak\texttt{AfterDoubleStep} \\[1.2em]
+    \hline
+    UT08 & Promotion ersetzt den Bauern durch die gewählte Figur. & \texttt{PromotionTest\#}\allowbreak\texttt{promotionToQueen}\allowbreak\texttt{ReplacesPawn} \\[1.2em]
+    \hline
+    UT09 & Schachmatt setzt \texttt{GameStatus} korrekt. & \texttt{EndgameTest\#}\allowbreak\texttt{backRankMate}\allowbreak\texttt{EndsGameWithWhiteWin} \\[1.2em]
+    \hline
+    UT10 & \texttt{GameService} delegiert Persistenz an das Repository. & \texttt{GameServiceMockTest\#}\allowbreak\texttt{startNewGame}\allowbreak\texttt{PersistsViaRepository} \\[1.2em]
+    \hline
+\end{tabularx}
+
+Insgesamt umfasst die Suite mehr als 80 Tests; die Tabelle zeigt einen repräsentativen Auszug.
+
+\bigskip
+
+\subsection*{ATRIP: Automatic}
+
+Die Tests laufen ausschließlich über \texttt{./gradlew test}, ohne manuelle Eingaben oder externe
+Ressourcen. Dateibasierte Tests (\texttt{FileGameRepositoryRoundTripTest}) verwenden
+\texttt{@TempDir}, sodass kein gemeinsam genutztes Dateisystem nötig ist. Das Erfolgs-/Fehlersignal
+ist der Exit-Code des Gradle-Aufrufs --- automatisierbar in jeder CI.
+
+\subsection*{ATRIP: Thorough}
+
+\textbf{Positiv-Beispiel:} \texttt{PromotionTest} prüft alle vier Promotion-Optionen (Queen, Rook,
+Bishop, Knight) sowie zwei Fehlerfälle: Promotion-Pflicht beim Erreichen der letzten Reihe und
+Ablehnung von Promotion außerhalb dieser Reihe. Damit deckt der Test den positiven wie den
+negativen Pfad gleichmäßig ab.
+
+\textbf{Negativ-Beispiel:} \texttt{InputParserTest\#rejectsMalformedInput} prüft drei Fehlerformen
+in einer Methode (\texttt{e2e4}, leerer String, \texttt{null} an \texttt{Position.fromAlgebraic}).
+Sauberer wäre eine Aufteilung in dedizierte Tests pro Eingabeklasse, weil der erste Assert beim
+Fehlschlagen die übrigen verdeckt.
+
+\subsection*{ATRIP: Professional}
+
+\textbf{Positiv-Beispiel:} \texttt{EndgameTest\#threefoldRepetitionEndsAsDraw} verwendet eine
+Zyklus-Schleife mit Statusabfrage, statt eine konkrete Halbzug-Anzahl hart zu kodieren. Damit
+bleibt der Test stabil, wenn sich die Implementierung der Wiederholung minimal ändert (etwa: ab
+welchem Halbzug der Zähler greift).
+
+\textbf{Negativ-Beispiel:} Die Hilfsmethode \texttt{p(String)} ist in mehreren Test-Klassen
+copy-pasted (\texttt{CastlingTest}, \texttt{EnPassantTest}, \texttt{PromotionTest},
+\texttt{EndgameTest}). Professioneller wäre eine gemeinsame Test-Utility, etwa \texttt{static
+import} aus einer \texttt{Squares}-Hilfsklasse.
+
+\subsection*{Code Coverage}
+
+\texttt{./gradlew jacocoTestReport} erzeugt einen HTML-Bericht unter
+\texttt{build/reports/jacoco/test/html}. Die Domain-Schicht ist mit den vorhandenen Tests gut
+abgedeckt: alle Figuren-Subklassen, \texttt{MoveValidator}, \texttt{CheckDetector},
+\texttt{GameStateEvaluator} sowie \texttt{Game.makeMove} besitzen umfangreiche Pfad-Abdeckung.
+Application-Services werden über \texttt{GameServiceMockTest} und \texttt{PersistenceServiceTest}
+mit Mockito getestet. Die Presentation-Schicht ist bewusst nur partiell abgedeckt
+(\texttt{InputParserTest}); reine Glue-Code-Klassen wie \texttt{ConsoleApp} oder die einzelnen
+Command-Objekte werden manuell beim Spielstart verifiziert.
+
+\subsection*{Fakes und Mocks}
+
+\textbf{Mock 1: \texttt{GameRepository}.} In \texttt{GameServiceMockTest} und
+\texttt{PersistenceServiceTest} wird das Repository durch \texttt{Mockito.mock(...)} ersetzt. Damit
+können wir prüfen, dass der Service \texttt{save(...)} aufruft (\texttt{verify}) und das
+\texttt{findById}-Verhalten passend stubben (\texttt{when(repo.findById(id)).thenReturn(...)}),
+ohne tatsächlich Dateien zu schreiben.
+
+\begin{tikzpicture}
+\begin{interface}[text width=6cm]{GameRepository}{0,0}
+\end{interface}
+\begin{class}[text width=6cm]{Mockito-Mock}{0,-3}
+    \implement{GameRepository}
+\end{class}
+\end{tikzpicture}
+
+\textbf{Mock 2: \texttt{GameRepository} im PersistenceService-Test.} Auch \texttt{PersistenceService}
+wird gegen einen Mock getestet; das Round-Trip-Szenario findet zusätzlich in einem realen
+\texttt{FileGameRepository} unter \texttt{@TempDir} statt, sodass Mock und Fake-Verhalten getrennt
+voneinander geprüft werden.
+
+% ============================================================
+% Kapitel 6: Domain Driven Design
+% ============================================================
+\section{Domain Driven Design}
+
+\subsection*{Ubiquitous Language}
+
+\bigskip
+\begin{tabularx}{\textwidth}{|l|X|X|}
+    \hline
+    \textbf{Bezeichnung} & \textbf{Bedeutung} & \textbf{Begründung} \\
+    \hline
+    \texttt{Game}     & Eine vollständige Schachpartie mit Spielern, Brett, Zughistorie, Status. & Der zentrale Begriff aus der Schach-Domäne; sowohl Regelwerk als auch Spieler reden von \glqq{}der Partie\grqq{}. \\[1.2em]
+    \hline
+    \texttt{Position} & Algebraisches Feld auf dem Brett (\texttt{a1}--\texttt{h8}). & Schachspieler verwenden diese Notation seit Jahrhunderten. Code und UI sprechen denselben Begriff. \\[1.2em]
+    \hline
+    \texttt{Move}     & Ein einzelner Halbzug (Quelle, Ziel, ggf.\ Promotion). & Die Domänensprache unterscheidet Halbzug von Vollzug; \texttt{Move} entspricht dem englischen Halbzug-Begriff. \\[1.2em]
+    \hline
+    \texttt{Check}    & Stellung, in der der König eines Spielers angegriffen ist. & Schach\,/\,Check ist ein Kernkonzept der Regeln; im Code modelliert durch \texttt{CheckDetector}. \\[1.2em]
+    \hline
+\end{tabularx}
+
+\bigskip
+
+\subsection*{Entities}
+
+\texttt{Game} ist eine Entity --- die Identität wird durch eine \texttt{UUID} stabilisiert, der
+Zustand (Brett, Status, ziehende Farbe) ändert sich über die Zeit. Zwei Partien mit identischem
+Brett sind nicht dieselbe Partie.
+
+\begin{tikzpicture}
+\begin{class}[text width=8cm]{Game}{0,0}
+    \attribute{- id : UUID}
+    \attribute{- board : Board}
+    \attribute{- history : MoveHistory}
+    \attribute{- status : GameStatus}
+    \operation{+ makeMove(move)}
+    \operation{+ resign(color)}
+\end{class}
+\end{tikzpicture}
+
+\subsection*{Value Objects}
+
+\texttt{Position} ist ein klassisches Value Object: unveränderlich, definiert durch seine Werte
+(\texttt{file}, \texttt{rank}), Gleichheit über alle Felder. Zwei \texttt{Position.of(4, 1)} sind
+identisch, eine \texttt{Position} kennt keine Identität.
+
+\begin{tikzpicture}
+\begin{class}[text width=7cm]{Position}{0,0}
+    \attribute{- file : int}
+    \attribute{- rank : int}
+    \operation{+ toAlgebraic() : String}
+    \operation{+ fileDelta(other) : int}
+\end{class}
+\end{tikzpicture}
+
+\subsection*{Repositories}
+
+\texttt{GameRepository} ist die abstrakte Schnittstelle, über die Application-Services Partien
+laden und speichern, ohne Persistenz-Details zu kennen. Implementierungen liegen in der
+Infrastruktur-Schicht.
+
+\begin{tikzpicture}
+\begin{interface}[text width=7cm]{GameRepository}{0,0}
+    \operation{+ save(game)}
+    \operation{+ findById(id) : Optional<Game>}
+    \operation{+ delete(id)}
+\end{interface}
+\end{tikzpicture}
+
+\subsection*{Aggregates}
+
+\texttt{Game} ist die Aggregat-Wurzel. Es schließt \texttt{Board}, \texttt{MoveHistory},
+\texttt{Player}, \texttt{GameStatus} und die ziehende Farbe als Konsistenzgrenze ein. Alle
+regelrelevanten Mutationen (\texttt{makeMove}, \texttt{resign}) laufen über \texttt{Game}, sodass
+Invarianten wie \glqq{}Status-Wechsel nur nach gültigem Zug\grqq{} oder \glqq{}aktive Farbe
+wechselt nach jedem Zug\grqq{} an einer Stelle gewahrt bleiben. Externe Klassen erhalten das Brett
+nur als Read-Only-Sicht (Snapshot, Renderer).
+
+% ============================================================
+% Kapitel 7: Refactoring
+% ============================================================
+\section{Refactoring}
+
+\subsection*{Code Smells}
+
+\textbf{Code Smell 1 --- Switch Statement (Commit \texttt{38655b6}):} ursprünglich enthielt
+\texttt{Piece} ein \texttt{switch(type)} mit Zugregeln aller Figuren in einer Methode. Lösung war
+\glqq{}Replace Conditional with Polymorphism\grqq{}: Subklassen pro Figurentyp.
+
+\begin{lstlisting}[language=Java,caption={Code Smell 1 --- switch in Piece (Stand \texttt{89e3843})},basicstyle=\ttfamily\footnotesize,frame=single]
+public List<Position> possibleMoves(Board board, Position from) {
+    List<Position> moves = new ArrayList<>();
+    switch (type) {
+        case PAWN:   addPawnMoves(board, from, moves); break;
+        case ROOK:   addSlidingMoves(board, from, moves, /* ... */); break;
+        case BISHOP: addSlidingMoves(board, from, moves, /* ... */); break;
+        case QUEEN:  addSlidingMoves(board, from, moves, /* ... */); break;
+        case KNIGHT: addStepMoves(board, from, moves, /* ... */);    break;
+        case KING:   addStepMoves(board, from, moves, /* ... */);    break;
+        default: throw new IllegalStateException("Unbekannter Figurentyp: " + type);
+    }
+    return moves;
+}
+\end{lstlisting}
+
+\textbf{Code Smell 2 --- Large Class / Duplicated Logic (Commit \texttt{a4d18f5}):} im früheren
+Stand vereinte \texttt{Game} die Aggregat-Verantwortung mit Validierung und Schach-Erkennung; die
+Schach-Erkennung war zudem an zwei Stellen dupliziert. Lösung war \glqq{}Extract Class\grqq{} zu
+\texttt{MoveValidator} und \texttt{CheckDetector}.
+
+\begin{lstlisting}[language=Java,caption={Code Smell 2 --- Game.makeMove validiert und prüft Schach inline (Stand \texttt{a4d18f5})},basicstyle=\ttfamily\footnotesize,frame=single]
+public MoveRecord makeMove(Move move) {
+    // ... pseudo-legale Pruefung ...
+    board.move(move.from(), move.to());
+    boolean isCheck = isInCheck(activeColor.opposite()); // 1. Aufruf
+    if (isInCheck(activeColor)) {                        // 2. Aufruf, gleiche Logik
+        board.move(move.to(), move.from());
+        throw new IllegalArgumentException("Zug laesst eigenen Koenig im Schach");
+    }
+    // ...
+}
+\end{lstlisting}
+
+\subsection*{2 Refactorings}
+
+\textbf{Refactoring 1: Replace Conditional with Polymorphism (Commits \texttt{0bf79b1},
+\texttt{4a5b875}).}\\
+\textbf{Vorher:} eine \texttt{Piece}-Klasse mit \texttt{switch(type)} (siehe Code Smell~1 oben).
+
+\begin{tikzpicture}
+\begin{class}[text width=8cm]{Piece (vorher)}{0,0}
+    \attribute{- type : PieceType}
+    \attribute{- color : PieceColor}
+    \operation{+ possibleMoves(...) : List<Position>}
+\end{class}
+\end{tikzpicture}
+
+\textbf{Nachher:} abstrakte \texttt{Piece}-Basis mit konkreten Subklassen \texttt{Pawn},
+\texttt{Rook}, \texttt{Bishop}, \texttt{Queen}, \texttt{Knight}, \texttt{King} (sowie
+\texttt{SlidingPiece} als Zwischen-Schicht für Linien-Figuren). Jede Klasse trägt nur ihre eigene
+Zuglogik, das System ist offen für neue Figuren ohne Änderung am Bestand (OCP).
+
+\begin{lstlisting}[language=Java,caption={Refactoring 1 nachher (Stand \texttt{4a5b875}) --- Pawn als eigene Strategy-Klasse},basicstyle=\ttfamily\footnotesize,frame=single]
+public abstract class Piece {
+    public abstract List<Position> possibleMoves(Board board, Position from);
+    // ... gemeinsamer Zustand: type, color, hasMoved ...
+}
+
+public final class Pawn extends Piece {
+    public Pawn(PieceColor color) { super(PieceType.PAWN, color); }
+
+    @Override
+    public List<Position> possibleMoves(Board board, Position from) {
+        List<Position> moves = new ArrayList<>();
+        int dir = color().isWhite() ? 1 : -1;
+        // ... bauern-spezifische Zuglogik ...
+        return moves;
+    }
+}
+\end{lstlisting}
+
+\textbf{Refactoring 2: Extract Class --- \texttt{MoveValidator} und \texttt{CheckDetector}
+(Commits \texttt{82a8048}, \texttt{cede2d0}).}\\
+\textbf{Vorher:} \texttt{Game} mit Inline-Validierung und doppelter Schach-Prüfung (siehe Code
+Smell~2 oben).
+
+\begin{tikzpicture}
+\begin{class}[text width=8cm]{Game (vorher)}{0,0}
+    \operation{+ makeMove(move)}
+    \operation{- validateInline(move)}
+    \operation{- isInCheckInline(...)}
+\end{class}
+\end{tikzpicture}
+
+\textbf{Nachher:} \texttt{Game} delegiert die Prüfung an einen \texttt{MoveValidator}, dieser
+nutzt einen \texttt{CheckDetector} für die Selbst-Schach-Probe. Die Schach-Prüfung existiert
+nur noch einmal (DRY), und das Aggregat orchestriert.
+
+\begin{tikzpicture}
+\begin{class}[text width=5.5cm]{Game (nachher)}{0,0}
+    \attribute{- validator : MoveValidator}
+    \attribute{- checkDetector : CheckDetector}
+\end{class}
+\begin{class}[text width=5.5cm]{MoveValidator}{6,0}
+    \attribute{- checkDetector : CheckDetector}
+\end{class}
+\end{tikzpicture}
+
+\begin{lstlisting}[language=Java,caption={Refactoring 2 nachher (Stand \texttt{82a8048}) --- MoveValidator als eigener Domain Service},basicstyle=\ttfamily\footnotesize,frame=single]
+public class MoveValidator {
+
+    private final CheckDetector checkDetector;
+
+    public MoveValidator(CheckDetector checkDetector) {
+        this.checkDetector = checkDetector;
+    }
+
+    public void validate(Board board, Move move, PieceColor activeColor) {
+        Piece moving = board.pieceAt(move.from());
+        if (moving == null)
+            throw new IllegalArgumentException("Kein Stueck auf " + move.from());
+        if (moving.color() != activeColor)
+            throw new IllegalArgumentException("Falsche Farbe am Zug");
+        if (!moving.possibleMoves(board, move.from()).contains(move.to()))
+            throw new IllegalArgumentException("Zug nicht erlaubt fuer " + moving.type());
+        Board probe = board.copy();
+        probe.move(move.from(), move.to());
+        if (checkDetector.isInCheck(probe, activeColor))
+            throw new IllegalArgumentException("Zug laesst eigenen Koenig im Schach");
+    }
+}
+\end{lstlisting}
+
+% ============================================================
+% Kapitel 8: Entwurfsmuster
+% ============================================================
+\section{Entwurfsmuster}
+
+\subsection*{Entwurfsmuster: Strategy}
+
+Die abstrakte Klasse \texttt{Piece} ist Strategie-Träger; jede konkrete Figurklasse
+(\texttt{Pawn}, \texttt{Rook}, \texttt{Bishop}, \texttt{Queen}, \texttt{Knight}, \texttt{King})
+implementiert eine eigene Variante der \texttt{possibleMoves}-Strategie. Aus Sicht von
+\texttt{MoveValidator} und \texttt{Game} ist die Figur ein \texttt{Piece}, die Auswahl der
+korrekten Zuglogik geschieht polymorph.
+
+\begin{tikzpicture}
+\begin{abstractclass}[text width=6cm]{Piece}{0,0}
+    \operation{+ possibleMoves(board, from)}
+\end{abstractclass}
+\begin{class}[text width=3cm]{Pawn}{-4,-3.5}
+    \inherit{Piece}
+\end{class}
+\begin{class}[text width=3cm]{Rook}{0,-3.5}
+    \inherit{Piece}
+\end{class}
+\begin{class}[text width=3cm]{Knight}{4,-3.5}
+    \inherit{Piece}
+\end{class}
+\end{tikzpicture}
+
+Vorteil: das System ist offen für neue Figuren, der Validator und das Aggregat müssen für eine
+neue Figur nicht angefasst werden.
+
+\subsection*{Entwurfsmuster: Command}
+
+Alle CLI-Eingaben sind als Kommando-Objekte modelliert. Das Interface \texttt{Command} hat eine
+einzige Methode, der Dispatcher in \texttt{ConsoleApp} wählt anhand des Eingabe-Schlüsselworts das
+passende Objekt aus einer \texttt{Map}. Ein neuer Befehl ist eine neue Klasse plus ein
+\texttt{put}; bestehende Klassen bleiben unberührt (OCP).
+
+\begin{tikzpicture}
+\begin{interface}[text width=5cm]{Command}{0,0}
+    \operation{+ execute(session, args)}
+\end{interface}
+\begin{class}[text width=3cm]{MoveCmd}{-4,-3.5}
+    \implement{Command}
+\end{class}
+\begin{class}[text width=3cm]{SaveCmd}{0,-3.5}
+    \implement{Command}
+\end{class}
+\begin{class}[text width=3cm]{ResignCmd}{4,-3.5}
+    \implement{Command}
+\end{class}
+\end{tikzpicture}
+
+Erweiterungsmöglichkeit: ein zukünftiges Undo lässt sich umsetzen, indem jedes Command beim
+Ausführen seinen Inversions-Zustand auf einem Stack ablegt --- die übrige Anwendung muss dafür
+nicht umstrukturiert werden.
+
+\end{document}

@@ -1,7 +1,6 @@
 # Chess
 
-Konsolen-Schach in Java — Programmentwurf an der DHBW Karlsruhe (Kurs Anwendungsorientiertes
-Software Engineering).
+Konsolen-Schach in Java — Programmentwurf an der DHBW Karlsruhe (Kurs Advanced Software Engineering).
 
 ## Überblick
 
@@ -58,7 +57,7 @@ hat keine Imports aus den anderen Paketen.
 ## Build & Run
 
 Voraussetzung: JDK 17 oder neuer (Wrapper liefert Gradle 9.0.0). Mockito-Tests laufen mit
-`net.bytebuddy.experimental=true`, das Flag ist im Build bereits gesetzt.
+`net.bytebuddy.experimental=true`, das Flag ist ja im Build bereits gesetzt.
 
 ```bash
 ./gradlew build           # kompiliert + Tests

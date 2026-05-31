@@ -93,13 +93,13 @@
 \subsection*{Übersicht über die Applikation}
 
 Die Anwendung ist ein vollständiges Konsolen-Schachspiel im Hot-Seat-Modus. Zwei Spieler teilen sich
-einen Rechner, geben ihre Züge nacheinander in algebraischer Notation ein (\texttt{e2-e4},
-\texttt{e7-e8=Q}, \texttt{O-O}) und sehen das Brett zwischen den Zügen als Unicode-ASCII-Ausgabe.
+einen Rechner und geben ihre Züge nacheinander in algebraischer Notation ein (\texttt{e2-e4},
+\texttt{e7-e8=Q}, \texttt{O-O}). Das Brett wird zwischen den Zügen als Unicode-ASCII-Ausgabe dargestellt.
 
-Implementiert sind alle regulären Schachregeln einschließlich Rochade, En passant,
-Bauernumwandlung sowie der Endspielerkennung Schachmatt, Patt, 50-Züge-Regel und dreifacher
-Stellungswiederholung. Partien können in einer einfachen, von Hand lesbaren Datei gespeichert und
-später wieder geladen werden (Format: FEN-Stellung plus PGN-light-Zugfolge).
+Implementiert sind sämtliche regulären Schachregeln inklusive Rochade, En passant,
+Bauernumwandlung sowie die Endspielerkennung für Schachmatt, Patt, 50-Züge-Regel und dreifache
+Stellungswiederholung. Partien lassen sich in einer einfachen, von Hand lesbaren Datei speichern und
+später wieder laden (Format: FEN-Stellung plus PGN-light-Zugfolge).
 
 Das Projekt löst kein konkretes Praxisproblem, sondern dient als didaktischer Übungsträger für
 Clean Architecture, Domain Driven Design, SOLID, Refactorings und Entwurfsmuster im Sinne des
@@ -145,11 +145,11 @@ open build/reports/jacoco/test/html/index.html
 
 \subsection*{Was ist Clean Architecture?}
 
-Clean Architecture nach Robert C. Martin organisiert ein System in konzentrische Schichten, deren
-Abhängigkeiten ausschließlich nach innen gerichtet sind. Innerhalb dieser Schale liegen die
-Domänen-Entitäten und Geschäftsregeln, in den äußeren Schichten Anwendungs-Use-Cases und
-schließlich Adapter wie UI, Datenbank oder Frameworks. Die zentrale Regel — die \emph{Dependency
-Rule} — besagt, dass Code aus einer äußeren Schicht zwar auf innere Schichten zugreifen darf, aber
+Clean Architecture nach Robert C. Martin strukturiert ein System in konzentrische Schichten, deren
+Abhängigkeiten stets nach innen gerichtet sind. Im Zentrum dieser Schale liegen die
+Domänen-Entitäten und Geschäftsregeln, in den äußeren Schichten befinden sich Anwendungs-Use-Cases und
+schließlich Adapter wie UI, Datenbank oder Frameworks. Die zentrale Regel \emph{Dependency
+Rule} besagt, dass Code aus einer äußeren Schicht zwar auf innere Schichten zugreifen darf, aber
 niemals umgekehrt: die Domain weiß nichts von der Datenbank, die Datenbank weiß nichts vom UI.
 
 Im Projekt ergeben sich vier Schichten:
@@ -173,7 +173,7 @@ Abhängigkeitsrichtung: \texttt{presentation $\to$ application $\to$ domain $\le
 
 \texttt{de.dhbw.chess.domain.entity.Game} ist Aggregat-Wurzel und liegt damit in der innersten
 Schicht. Die Klasse importiert ausschließlich aus \texttt{domain.valueobject}, \texttt{domain.entity}
-und \texttt{domain.service} — keinen Import in Richtung \texttt{application},
+und \texttt{domain.service}, keinen Import in Richtung \texttt{application},
 \texttt{infrastructure} oder \texttt{presentation}.
 
 \begin{tikzpicture}
@@ -193,7 +193,7 @@ und \texttt{domain.service} — keinen Import in Richtung \texttt{application},
 \end{tikzpicture}
 
 \textbf{Wer hängt von \texttt{Game} ab?} \texttt{GameService} und \texttt{MoveService} aus der
-Application-Schicht, sowie alle Command-Klassen der Presentation-Schicht — also ausschließlich
+Application-Schicht, sowie alle Command-Klassen der Presentation-Schicht, also ausschließlich
 äußere Schichten. \textbf{Wovon hängt \texttt{Game} ab?} Nur von Klassen seiner eigenen Domain.
 Damit erfüllt die Klasse die Dependency Rule.
 
@@ -203,13 +203,13 @@ Im aktuellen Stand existiert keine Domain- oder Application-Klasse, die nach au�
 hypothetisches Negativ-Beispiel: würde \texttt{Game} direkt eine \texttt{FileGameRepository}-Instanz
 besitzen und beim \texttt{makeMove} synchron schreiben, würde der Domänenkern an die
 Infrastruktur-Schicht gekoppelt; ein Wechsel auf eine Datenbank zöge Änderungen mitten in der
-Domain nach sich. Heute trägt der \texttt{MoveService} (Application) diese Verantwortung —
+Domain nach sich. \texttt{MoveService} in Application als neuer Service.
 \texttt{game.makeMove(...)} bleibt in der Domain isoliert, der Service ruft anschließend
 \texttt{repository.save(game)} auf.
 
 \subsection*{Analyse der Schichten}
 
-\subsubsection*{Schicht: Domain --- \texttt{MoveValidator}}
+\subsubsection*{Schicht Domain: \texttt{MoveValidator}}
 
 \texttt{de.dhbw.chess.domain.service.MoveValidator} ist ein Domain-Service. Er prüft für eine
 Stellung, ob ein Zug regelkonform ist (Bewegungsmuster der Figur, Rochade-Vorbedingungen, En
@@ -226,13 +226,12 @@ Die Klasse spricht nur Domain-Klassen an (\texttt{Board}, \texttt{Piece}-Hierarc
 \end{class}
 \end{tikzpicture}
 
-\subsubsection*{Schicht: Infrastructure --- \texttt{FileGameRepository}}
+\subsubsection*{Schicht Infrastructure: \texttt{FileGameRepository}}
 
 \texttt{de.dhbw.chess.infrastructure.persistence.FileGameRepository} implementiert das
 Domain-Interface \texttt{GameRepository} und schreibt jede Partie als Textdatei ins
 Verzeichnis \texttt{\textasciitilde/.chess-saves/}. Die Klasse kennt die Domain (sie serialisiert
-\texttt{Board} und \texttt{MoveHistory}), die Domain kennt aber nicht die Datei — sie sieht nur
-das Interface.
+\texttt{Board} und \texttt{MoveHistory}), die Domain kennt aber nicht die Datei.
 
 \begin{tikzpicture}
 \begin{interface}[text width=7cm]{GameRepository}{0,0}
@@ -274,10 +273,10 @@ In den Commits \texttt{39706e1} (\glqq{}Game.makeMove with inline validation\grq
 \texttt{a4d18f5} (\glqq{}inline check detection in Game\grqq{}) hatte \texttt{Game} mehrere
 Aufgaben gleichzeitig: Aggregat-Lebenszyklus, Zugvalidierung \emph{und} Schach-Erkennung. Die
 gesamte Regel-Logik hing direkt in \texttt{makeMove}, sodass die Klasse mehr als einen Grund hatte,
-sich zu ändern --- jedes neue Regeldetail (Rochade, En passant, Selbst-Schach) hätte mitten in
+sich zu ändern. Jedes neue Regeldetail (Rochade, En passant, Selbst-Schach) hätte mitten in
 \texttt{Game} eingeflochten werden müssen.
 
-\begin{lstlisting}[caption={Game.makeMove (Stand \texttt{39706e1}) --- Validierung inline im Aggregat}]
+\begin{lstlisting}[caption={Game.makeMove (Stand \texttt{39706e1}): Validierung inline im Aggregat}]
 public MoveRecord makeMove(Move move) {
     Objects.requireNonNull(move, "move");
     if (status.isFinal()) {
@@ -343,7 +342,7 @@ existierte eine einzelne, finale \texttt{Piece}-Klasse mit einer langen
 \texttt{switch} aufgebrochen. Der Code-Smell wurde im Refactoring 1 (Commit \texttt{4a5b875})
 durch Extraktion in Subklassen (Strategy) aufgelöst.
 
-\begin{lstlisting}[language=Java,caption={Piece.possibleMoves (Stand 89e3843) --- zentrale switch-Logik},basicstyle=\ttfamily\footnotesize,frame=single]
+\begin{lstlisting}[language=Java,caption={Piece.possibleMoves (Stand 89e3843): zentrale switch-Logik},basicstyle=\ttfamily\footnotesize,frame=single]
 public List<Position> possibleMoves(Board board, Position from) {
     List<Position> moves = new ArrayList<>();
     switch (type) {
@@ -390,9 +389,9 @@ Hier wird das \textbf{Dependency-Inversion-Principle (DIP)} ausgewählt.
 \subsubsection*{Positiv-Beispiel}
 
 \texttt{GameService} hängt vom \emph{Interface} \texttt{GameRepository} ab, nicht von einer
-konkreten Implementierung. Im Konstruktor wird das Repository injiziert; ob dahinter
+konkreten Implementierung. Das Repository wird im Konstruktor injiziert; ob dahinter
 \texttt{InMemoryGameRepository}, \texttt{FileGameRepository} oder im Test ein
-\texttt{Mockito.mock(GameRepository.class)} steht, ist transparent.
+\texttt{Mockito.mock(GameRepository.class)} steht, bleibt transparent.
 
 \begin{tikzpicture}
 \begin{interface}[text width=5.5cm]{GameRepository}{0,0}
@@ -445,7 +444,7 @@ Presentation-Klasse an mehreren Domain-Klassen gleichzeitig (\texttt{Game}, \tex
 einen Application-Service-Aufruf wie \texttt{moveService.executeCastling(gameId, kingside)}
 einzuführen, sodass die CLI keinen Zugriff mehr auf Domain-Entities benötigt.
 
-\begin{lstlisting}[language=Java,caption={MoveCmd --- Presentation-Klasse mit direktem Zugriff auf Domain-Entities},basicstyle=\ttfamily\footnotesize,frame=single]
+\begin{lstlisting}[language=Java,caption={MoveCmd: Presentation-Klasse mit direktem Zugriff auf Domain-Entities},basicstyle=\ttfamily\footnotesize,frame=single]
 private Position findKing(Game game, PieceColor color) {
     for (int f = 0; f < 8; f++) {
         for (int r = 0; r < 8; r++) {
@@ -476,7 +475,7 @@ Validierung eines Zugs als auch eine eigenständige Schach-Erkennung. Beide Stel
 Probe-Brett den eigenen König in Schach setzen würde --- die Logik (Brett kopieren, Zug ausführen,
 Königsfeld auf Angriffsfreiheit prüfen) war doppelt vorhanden.
 
-\begin{lstlisting}[language=Java,caption={Game (Stand \texttt{a4d18f5}) --- Schach-Prüfung inline und dupliziert},basicstyle=\ttfamily\footnotesize,frame=single]
+\begin{lstlisting}[language=Java,caption={Game (Stand \texttt{a4d18f5}): Schach-Prüfung inline und dupliziert},basicstyle=\ttfamily\footnotesize,frame=single]
 public MoveRecord makeMove(Move move) {
     // ... (Eigentums- und Zielfeld-Pruefung) ...
     board.move(move.from(), move.to());
@@ -510,7 +509,7 @@ Im Refactoring 2 (Commits \texttt{82a8048}, \texttt{cede2d0}) wurden \texttt{Mov
 beide Aufrufer (Validator beim Probespielen, Aggregat beim Erkennen von \glqq{}Schach!\grqq{})
 rufen denselben Service auf.
 
-\begin{lstlisting}[language=Java,caption={CheckDetector (Stand \texttt{cede2d0}) --- Schach-Prüfung an genau einer Stelle},basicstyle=\ttfamily\footnotesize,frame=single]
+\begin{lstlisting}[language=Java,caption={CheckDetector (Stand \texttt{cede2d0}): Schach-Prüfung an genau einer Stelle},basicstyle=\ttfamily\footnotesize,frame=single]
 public class CheckDetector {
 
     public boolean isInCheck(Board board, PieceColor color) {
@@ -708,11 +707,11 @@ Infrastruktur-Schicht.
 
 \subsection*{Aggregates}
 
-\texttt{Game} ist die Aggregat-Wurzel. Es schließt \texttt{Board}, \texttt{MoveHistory},
-\texttt{Player}, \texttt{GameStatus} und die ziehende Farbe als Konsistenzgrenze ein. Alle
-regelrelevanten Mutationen (\texttt{makeMove}, \texttt{resign}) laufen über \texttt{Game}, sodass
+\texttt{Game} ist die Aggregat-Wurzel. Sie schließt \texttt{Board}, \texttt{MoveHistory},
+\texttt{Player}, \texttt{GameStatus} und die ziehende Farbe als Konsistenzgrenze ein. Sämtliche
+regelrelevanten Mutationen (\texttt{makeMove}, \texttt{resign}) erfolgen über \texttt{Game}, sodass
 Invarianten wie \glqq{}Status-Wechsel nur nach gültigem Zug\grqq{} oder \glqq{}aktive Farbe
-wechselt nach jedem Zug\grqq{} an einer Stelle gewahrt bleiben. Externe Klassen erhalten das Brett
+wechselt nach jedem Zug\grqq{} zentral gewahrt bleiben. Externe Klassen erhalten das Brett
 nur als Read-Only-Sicht (Snapshot, Renderer).
 
 % ============================================================
@@ -722,11 +721,11 @@ nur als Read-Only-Sicht (Snapshot, Renderer).
 
 \subsection*{Code Smells}
 
-\textbf{Code Smell 1 --- Switch Statement (Commit \texttt{38655b6}):} ursprünglich enthielt
+\textbf{Code Smell 1 (Switch Statement, Commit \texttt{38655b6}):} ursprünglich enthielt
 \texttt{Piece} ein \texttt{switch(type)} mit Zugregeln aller Figuren in einer Methode. Lösung war
 \glqq{}Replace Conditional with Polymorphism\grqq{}: Subklassen pro Figurentyp.
 
-\begin{lstlisting}[language=Java,caption={Code Smell 1 --- switch in Piece (Stand \texttt{89e3843})},basicstyle=\ttfamily\footnotesize,frame=single]
+\begin{lstlisting}[language=Java,caption={Code Smell 1 -- switch in Piece (Stand \texttt{89e3843})},basicstyle=\ttfamily\footnotesize,frame=single]
 public List<Position> possibleMoves(Board board, Position from) {
     List<Position> moves = new ArrayList<>();
     switch (type) {
@@ -742,12 +741,12 @@ public List<Position> possibleMoves(Board board, Position from) {
 }
 \end{lstlisting}
 
-\textbf{Code Smell 2 --- Large Class / Duplicated Logic (Commit \texttt{a4d18f5}):} im früheren
+\textbf{Code Smell 2 (Large Class / Duplicated Logic, Commit \texttt{a4d18f5}):} im früheren
 Stand vereinte \texttt{Game} die Aggregat-Verantwortung mit Validierung und Schach-Erkennung; die
 Schach-Erkennung war zudem an zwei Stellen dupliziert. Lösung war \glqq{}Extract Class\grqq{} zu
 \texttt{MoveValidator} und \texttt{CheckDetector}.
 
-\begin{lstlisting}[language=Java,caption={Code Smell 2 --- Game.makeMove validiert und prüft Schach inline (Stand \texttt{a4d18f5})},basicstyle=\ttfamily\footnotesize,frame=single]
+\begin{lstlisting}[language=Java,caption={Code Smell 2: Game.makeMove validiert und prüft Schach inline (Stand \texttt{a4d18f5})},basicstyle=\ttfamily\footnotesize,frame=single]
 public MoveRecord makeMove(Move move) {
     // ... pseudo-legale Pruefung ...
     board.move(move.from(), move.to());
@@ -779,7 +778,7 @@ public MoveRecord makeMove(Move move) {
 \texttt{SlidingPiece} als Zwischen-Schicht für Linien-Figuren). Jede Klasse trägt nur ihre eigene
 Zuglogik, das System ist offen für neue Figuren ohne Änderung am Bestand (OCP).
 
-\begin{lstlisting}[language=Java,caption={Refactoring 1 nachher (Stand \texttt{4a5b875}) --- Pawn als eigene Strategy-Klasse},basicstyle=\ttfamily\footnotesize,frame=single]
+\begin{lstlisting}[language=Java,caption={Refactoring 1 nachher (Stand \texttt{4a5b875}): Pawn als eigene Strategy-Klasse},basicstyle=\ttfamily\footnotesize,frame=single]
 public abstract class Piece {
     public abstract List<Position> possibleMoves(Board board, Position from);
     // ... gemeinsamer Zustand: type, color, hasMoved ...
@@ -798,7 +797,7 @@ public final class Pawn extends Piece {
 }
 \end{lstlisting}
 
-\textbf{Refactoring 2: Extract Class --- \texttt{MoveValidator} und \texttt{CheckDetector}
+\textbf{Refactoring 2: Extract Class für \texttt{MoveValidator} und \texttt{CheckDetector}
 (Commits \texttt{82a8048}, \texttt{cede2d0}).}\\
 \textbf{Vorher:} \texttt{Game} mit Inline-Validierung und doppelter Schach-Prüfung (siehe Code
 Smell~2 oben).
@@ -825,7 +824,7 @@ nur noch einmal (DRY), und das Aggregat orchestriert.
 \end{class}
 \end{tikzpicture}
 
-\begin{lstlisting}[language=Java,caption={Refactoring 2 nachher (Stand \texttt{82a8048}) --- MoveValidator als eigener Domain Service},basicstyle=\ttfamily\footnotesize,frame=single]
+\begin{lstlisting}[language=Java,caption={Refactoring 2 nachher (Stand \texttt{82a8048}): MoveValidator als eigener Domain Service},basicstyle=\ttfamily\footnotesize,frame=single]
 public class MoveValidator {
 
     private final CheckDetector checkDetector;
